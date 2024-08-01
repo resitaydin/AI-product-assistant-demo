@@ -1,3 +1,4 @@
+# This implementation uses fake system prompt approach to generate responses for the user queries.
 
 from flask import Flask, request, jsonify
 import os

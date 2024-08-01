@@ -26,7 +26,7 @@ const SendMessage = async ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: SearchTerm, // Adjust the payload to match what the Flask endpoint expects
+          message: SearchTerm,
         }),
       });
       if (!response.ok) {
