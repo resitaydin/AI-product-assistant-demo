@@ -1,7 +1,5 @@
-import torch
+from transformers import pipeline
 import numpy as np
-from transformers import DistilBertTokenizer, DistilBertModel, pipeline
-from sklearn.metrics.pairwise import cosine_similarity
 
 # Load and preprocess the file
 def load_text_file(file_path):
@@ -13,7 +11,7 @@ file_path = 'moisturizer.txt'
 file_content = load_text_file(file_path)
 
 # Segment the text
-def segment_text(text, max_length=500):
+def segment_text(text, max_length=1000):
     sentences = text.split('. ')
     segments = []
     current_segment = []
@@ -35,34 +33,26 @@ def segment_text(text, max_length=500):
 
 segments = segment_text(file_content)
 
-# Generate embeddings for each segment
-tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-model = DistilBertModel.from_pretrained('distilbert-base-uncased')
-
-def get_embeddings(text):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    return outputs.last_hidden_state.mean(dim=1).numpy()
-
-segment_embeddings = [get_embeddings(segment) for segment in segments]
-segment_embeddings = np.vstack(segment_embeddings)
-
-# Retrieve relevant segment
-def retrieve_relevant_segment(question, segment_embeddings, segments):
-    question_embedding = get_embeddings(question)
-    similarities = cosine_similarity(question_embedding, segment_embeddings)
-    best_match_idx = similarities.argmax()
-    return segments[best_match_idx]
-
-# Answer questions using the LLM
-qa_pipeline = pipeline('question-answering', model='distilbert-base-uncased')
+# Load a larger or specialized pre-trained question-answering model and tokenizer
+qa_pipeline = pipeline('question-answering', model='bert-large-uncased-whole-word-masking-finetuned-squad', tokenizer='bert-large-uncased')
 
 def answer_question(question, context):
     return qa_pipeline(question=question, context=context)
 
+# Function to find the most relevant segment
+def retrieve_relevant_segment(question, segments):
+    answers = []
+    for segment in segments:
+        result = answer_question(question, segment)
+        answers.append((result['score'], result['answer'], segment))
+    
+    # Sort answers by confidence score
+    answers = sorted(answers, key=lambda x: x[0], reverse=True)
+    return answers[0] if answers else ("No answer found", "", "")
+
 # Example usage
-question = "What is the main topic of the document?"
-relevant_segment = retrieve_relevant_segment(question, segment_embeddings, segments)
-answer = answer_question(question, relevant_segment)
-print(f"Answer: {answer['answer']}")
+question = "What type of testing process does it go through?"
+best_answer = retrieve_relevant_segment(question, segments)
+
+print(f"Answer: {best_answer[1]}")
+print(f"Confidence Score: {best_answer[0]}")
